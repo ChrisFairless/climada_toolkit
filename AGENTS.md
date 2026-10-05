@@ -2,6 +2,7 @@
 
 - Ask clarifying questions.
 - Write a plan before modifying code unless it's a fix or you're told to make the change right away.
+- When I ask "Is there a way to do X?" I usually want an explanation of whether this is a good option. Not an implementation in the codebase.
 - Update this file when asked to or you see relevant learnings.
 
 
