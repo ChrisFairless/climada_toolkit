@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from shapely.geometry import box
 
+from climada.util.config import CONFIG
 from climada.hazard import Hazard
 from climada.util import coordinates as u_coord
 from climada.util import files_handler as u_fh
@@ -34,13 +35,19 @@ AQUEDUCT_FUTURE_GCMS = [
 AQUEDUCT_RETURN_PERIODS = [2, 5, 10, 25, 50, 100, 250, 500, 1000]
 
 # Download and output paths
-# In a more formal setup, these could be read from a setting in climada.conf
-# and therefore available across different studies.
-DOWNLOAD_DIR = Path("./data/raw")
-OUTPUT_DIR = Path("./data")
+# We use the climada configuration to get a local data system folder.
+DOWNLOAD_DIR = CONFIG.local_data.system.dir() / "hazard" / "aqueduct_river" / "raw"
+OUTPUT_DIR = CONFIG.local_data.system.dir() / "hazard" / "aqueduct_river" / "hdf5"
 
 # Global extent: use this to get a global hazard
 GLOBAL_BOUNDS = (-180, -90, 180, 90)
+
+# Create download and output directories if they do not exist (and the user has specified a CLIMADA data folder)
+if CONFIG.local_data.system.dir().is_dir():
+    if not DOWNLOAD_DIR.is_dir():
+        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    if not OUTPUT_DIR.is_dir():
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_aqueduct_river_flood(
@@ -51,7 +58,9 @@ def load_aqueduct_river_flood(
         country: str | None = None,
         bounding_box: tuple[float, float, float, float] | None = None,
         download_dir: Path = DOWNLOAD_DIR,
-        output_path: Path | None = None,
+        output_dir: Path = OUTPUT_DIR,
+        output_filename: str = None,
+        force_redownload: bool = False,
     ):
     """Download, subset, and load Aqueduct river flood data as a CLIMADA Hazard. 
     
@@ -69,17 +78,21 @@ def load_aqueduct_river_flood(
     year : int
         Historical data use 1980; future scenarios use 2030, 2050, or 2080.
     gcms : list of str, optional
-        General circulation models to use. Defaults to all available GCMs for the scenario.
+        General circulation models to use. None or an empty list selects all available GCMs for the scenario.
     return_periods : list of int, optional
-        Return periods to include. Defaults to all available return periods.
+        Return periods to include. None or an empty list selects all available return periods.
     country : str, optional
         ISO3 country code. At least one of ``country`` or ``bounding_box`` must be supplied.
     bounding_box : tuple of float, optional
         Bounding box as (min_lon, min_lat, max_lon, max_lat). At least one of ``country`` or ``bounding_box`` must be supplied.
     download_dir : pathlib.Path, optional
         Directory to download Aqueduct GeoTIFFs to.
-    output_path : pathlib.Path, optional
-        HDF5 destination. Its parent directory must already exist. Defaults to None, in which case the hazard is not written to file.
+    output_dir : pathlib.Path, optional
+        Directory for the HDF5 output. Must already exist. Defaults to OUTPUT_DIR.
+    output_filename : str
+        HDF5 filename, combined with output_dir to form the output path. Not specifying this will skip writing to HDF5.
+    force_redownload : bool, optional
+        Download files again even if they already exist. Defaults to False.
 
     Returns
     -------
@@ -95,35 +108,38 @@ def load_aqueduct_river_flood(
         )
     )
 
+    if output_dir is not None:
+        if not Path(output_dir).is_dir():
+            raise FileNotFoundError(
+                f"Output directory does not exist: {Path(output_dir)}"
+            )
+
+
     # Download required Aqueduct GeoTIFFs
     # ---------------------------------------
     for rp in return_periods:
         for gcm in gcms:
-            download_path = download_aqueduct_river_file(
-                scenario, year, gcm, rp, download_dir, force=False,
+            download_aqueduct_river_file(
+                scenario=scenario, year=year, gcm=gcm, return_period=rp,
+                download_dir=download_dir, force_redownload=force_redownload,
             )
 
     # Create the hazard object for the area of interest
     # ---------------------------------------
     hazard = create_aqueduct_river_hazard(
-        scenario,
-        year,
-        gcms,
-        return_periods,
-        country,
-        bounding_box,
-        output_path,
+        download_dir=download_dir,
+        scenario=scenario,
+        year=year,
+        gcms=gcms,
+        return_periods=return_periods,
+        country=country,
+        bounding_box=bounding_box,
     )
 
-    # Save the Hazard to HDF5 if a path is provided
+    # Save the Hazard to HDF5
     # ---------------------------------------
-    if output_path is not None:
-        output_path = Path(output_path)
-    
-        if not output_path.parent.is_dir():
-            raise FileNotFoundError(
-                f"Output directory does not exist: {output_path.parent}"
-            )
+    if output_filename is not None:
+        output_path = Path(output_dir) / output_filename
         hazard.write_hdf5(output_path)
         LOGGER.info("Wrote Aqueduct hazard to %s", output_path)
 
@@ -136,11 +152,11 @@ def download_aqueduct_river_file(
         gcm: str,
         return_period: int,
         download_dir: Path | str = DOWNLOAD_DIR,
-        force: bool = False,
+        force_redownload: bool = False,
     ):
     """Download the requested Aqueduct river-flood GeoTIFFs (if missing).
 
-    Existing files in ``download_dir`` are not overwritten, unless ``force`` is 
+    Existing files in ``download_dir`` are not overwritten, unless ``force_redownload`` is 
     True. The download directory must already exist.
 
     Returns
@@ -165,7 +181,7 @@ def download_aqueduct_river_file(
     url = f"{AQUEDUCT_BASE_URL}{filename}"
     file_path = download_dir / filename
 
-    if file_path.exists() and not force:
+    if file_path.exists() and not force_redownload:
         LOGGER.info(
             "Aqueduct file already downloaded: scenario=%s year=%s gcm=%s rp=%s "
             "url=%s local_path=%s",
@@ -205,15 +221,17 @@ def create_aqueduct_river_hazard(
     calculated (see comment in the code).
 
     If ``country`` is supplied, its land geometry is used. If
-    ``bounding_box`` is supplied, the data are clipped to the box.
-
-    If ``gcms`` is not supplied, all available GCMs are used. If
-    ``return_periods`` is not supplied, all available return periods are used.
+    ``bounding_box`` is supplied, the data are clipped to the box. Both can be 
+    used together.
+    
+    If ``gcms`` is None or empty, all available GCMs are used. If
+    ``return_periods`` is None or empty, all available return periods are used.
+    Events are ordered by descending return period, then by the supplied GCM order.
 
     Returns
     -------
     climada.hazard.Hazard
-        The constructed hazard, whether or not it was written to disk.
+        The constructed Hazard object.
     """
 
     scenario, year, gcms, return_periods, country, bounding_box = (
@@ -265,13 +283,18 @@ def create_aqueduct_river_hazard(
             event_names.append(f"rp{return_period}_{gcm}_{scenario}_{year}")
             frequencies.append(event_frequency_by_rp[return_period])
 
-    print("file_paths")
-    print(file_paths)
+    LOGGER.info("Reading Aqueduct raster files: %s", file_paths)
+    if not all(path.is_file() for path in file_paths):
+        raise FileNotFoundError(
+            "Some Aqueduct raster files are missing. "
+            "Download files first with load_aqueduct_river_flood or download_aqueduct_river_file: "
+            "Missing files: %s" % [str(path) for path in file_paths if not path.is_file()]
+        )
 
     # Construct the hazard from the raw raster files
     # ----------------------------------
     hazard = Hazard.from_raster(
-        files_intensity=[Path(path) for path in file_paths],
+        files_intensity=file_paths,
         files_fraction=None,
         attrs={
             "event_id": np.arange(len(event_names)) + 1,
@@ -331,10 +354,10 @@ def validate_aqueduct_parameters(
     year : int
         Historical data use 1980; future scenarios use 2030, 2050, or 2080.
     gcms : list[str], optional
-        Requested GCMs. If omitted, all GCMs valid for ``scenario`` are used.
+        Requested GCMs. If None or empty, all GCMs valid for ``scenario`` are used.
     return_periods : list[int], optional
-        Requested return periods. If omitted, all supported return periods are
-        used. The returned list is sorted in descending order.
+        Requested return periods. If None or empty, all supported return periods are
+        used. The output sorts by lowest to highest return period.
     country : str, optional
         ISO3 country code. If supplied with ``bounding_box``, the country geometry
         is intersected with the bounding box.
@@ -357,6 +380,8 @@ def validate_aqueduct_parameters(
     """
 
     # Validate scenario and year
+    if not isinstance(year, (int, np.integer)):
+        raise ValueError("year must be an integer")
     if scenario not in AQUEDUCT_SCENARIOS:
         raise ValueError(f"Invalid Aqueduct scenario: {scenario}. Must be one of {', '.join(AQUEDUCT_SCENARIOS)}")
     if year not in AQUEDUCT_YEARS:
@@ -373,7 +398,7 @@ def validate_aqueduct_parameters(
     )
 
     # If no GCMs are provided, use all available GCMs
-    if gcms is None:
+    if gcms is None or len(gcms) == 0:
         gcms = list(valid_gcms)
     else:
         gcms = list(gcms)
@@ -388,12 +413,15 @@ def validate_aqueduct_parameters(
         )
 
     # If no return periods are provided, use all of them
-    if return_periods is None:
+    if return_periods is None or len(return_periods) == 0:
         return_periods = list(AQUEDUCT_RETURN_PERIODS)
     else:
         return_periods = list(return_periods)
-    
+
     # Validate return periods
+    if not all(isinstance(rp, (int, np.integer)) for rp in return_periods):
+        raise ValueError("return_periods must contain integers")
+    return_periods.sort()
     if len(return_periods) != len(set(return_periods)):
         raise ValueError("Return periods must not contain duplicates")
     invalid_rps = [rp for rp in return_periods if rp not in AQUEDUCT_RETURN_PERIODS]
