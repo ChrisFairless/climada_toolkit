@@ -34,6 +34,10 @@ htmlcov/
 # IDEs
 .vscode/
 .idea/
+climada_toolkit.code-workspace
 
 # Logs
 *.log
+
+# Data
+data/
