@@ -1,0 +1,74 @@
+name: Notebook CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: notebook-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  execute-notebooks:
+    name: notebooks (${{ matrix.os }}, py${{ matrix.python-version }}, climada-${{ matrix.climada-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+        climada-version:
+          - "6.1.0"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create CI environment file
+        shell: bash
+        run: |
+          cat > environment.generated.yml <<EOF
+          name: climada_toolkit
+          channels:
+            - conda-forge
+          dependencies:
+            - python=${{ matrix.python-version }}
+            - climada==${{ matrix.climada-version }}
+            - pip
+            - pip:
+                - -e .[dev]
+          EOF
+
+      - name: Set up environment
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: environment.generated.yml
+          environment-name: climada_toolkit
+          cache-environment: true
+
+      - name: Cache downloaded Aqueduct rasters
+        uses: actions/cache@v4
+        with:
+          path: ~/climada/data/aqueduct_river/raw
+          key: aqueduct-river-raw-v1
+
+      - name: Run notebooks with pytest/nbmake
+        shell: bash -l {0}
+        run: |
+          micromamba run -n climada_toolkit pytest --nbmake --junitxml=notebook-results.xml climada_toolkit
+
+      - name: Publish notebook test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Notebook results (${{ matrix.os }}, py${{ matrix.python-version }}, climada-${{ matrix.climada-version }})
+          path: notebook-results.xml
+          reporter: java-junit
