@@ -5,12 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "climada-toolkit"
 version = "0.1.0"
-description = "A toolbox of useful CLIMADA code snippets to copy and adapt."
+description = "A toolkit of useful CLIMADA code snippets to copy, import or adapt."
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.10,<3.13"
 
-testpaths = ["tests"]
+[project.optional-dependencies]
+dev = ["pytest", "nbmake", "jupyter"]
 
 [tool.setuptools.packages.find]
-include = ["climada_toolbox*"]
+include = ["climada_toolkit*"]
+
+[tool.pytest.ini_options]
+testpaths = ["climada_toolkit"]
+# Long timeout since notebooks download data and run full workflows; only applies with --nbmake.
+nbmake_timeout = 1800

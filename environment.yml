@@ -6,4 +6,4 @@ dependencies:
   - climada>=6.0
   - pip
   - pip:
-      - -e .
+      - -e .[dev]
