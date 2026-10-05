@@ -45,7 +45,7 @@ jobs:
             - climada==${{ matrix.climada-version }}
             - pip
             - pip:
-                - -e .[test]
+                - -e .[dev]
           EOF
 
       - name: Set up environment
