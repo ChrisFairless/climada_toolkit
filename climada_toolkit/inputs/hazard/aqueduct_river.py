@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from shapely.geometry import box
 
+from climada.util.config import CONFIG
 from climada.hazard import Hazard
 from climada.util import coordinates as u_coord
 from climada.util import files_handler as u_fh
@@ -34,14 +35,19 @@ AQUEDUCT_FUTURE_GCMS = [
 AQUEDUCT_RETURN_PERIODS = [2, 5, 10, 25, 50, 100, 250, 500, 1000]
 
 # Download and output paths
-# In a more formal setup we recommend setting this in climada.conf
-# and therefore making data available across different studies.
-# This is done in the Jupyter notebook
-DOWNLOAD_DIR = Path("./data/raw")
-OUTPUT_DIR = Path("./data")
+# We use the climada configuration to get a local data system folder.
+DOWNLOAD_DIR = CONFIG.local_data.system.dir() / "aqueduct_river" / "raw"
+OUTPUT_DIR = CONFIG.local_data.system.dir() / "aqueduct_river" / "hdf5"
 
 # Global extent: use this to get a global hazard
 GLOBAL_BOUNDS = (-180, -90, 180, 90)
+
+# Create download and output directories if they do not exist (and the user has specified a CLIMADA data folder)
+if Path(CONFIG.local_data.system).is_dir():
+    if not DOWNLOAD_DIR.is_dir():
+        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    if not OUTPUT_DIR.is_dir():
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_aqueduct_river_flood(
