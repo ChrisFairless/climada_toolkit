@@ -55,6 +55,12 @@ jobs:
           environment-name: climada_toolkit
           cache-environment: true
 
+      - name: Cache downloaded Aqueduct rasters
+        uses: actions/cache@v4
+        with:
+          path: ~/climada/data/aqueduct_river/raw
+          key: aqueduct-river-raw-v1
+
       - name: Run notebooks with pytest/nbmake
         shell: bash -l {0}
         run: |
