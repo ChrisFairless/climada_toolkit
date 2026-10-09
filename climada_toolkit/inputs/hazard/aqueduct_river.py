@@ -394,7 +394,7 @@ def validate_aqueduct_parameters(
     if scenario not in AQUEDUCT_SCENARIOS:
         raise ValueError(f"Invalid Aqueduct scenario: {scenario}. Must be one of {', '.join(AQUEDUCT_SCENARIOS)}")
     if year not in AQUEDUCT_YEARS_HISTORICAL + AQUEDUCT_YEARS_FUTURE:
-        raise ValueError(f"Invalid Aqueduct year: {year}. Must be one of {', '.join(map(str, set(AQUEDUCT_YEARS_HISTORICAL + AQUEDUCT_YEARS_FUTURE))}")
+        raise ValueError(f"Invalid Aqueduct year: {year}. Must be one of {', '.join(AQUEDUCT_YEARS_HISTORICAL + AQUEDUCT_YEARS_FUTURE)}")
     if scenario == "historical" and year not in AQUEDUCT_YEARS_HISTORICAL:
         raise ValueError("Historical Aqueduct data requires year 1980")
     if scenario != "historical" and year not in AQUEDUCT_YEARS_FUTURE:
