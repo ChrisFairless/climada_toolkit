@@ -81,7 +81,8 @@ def load_aqueduct_river_flood(
     gcms : list of str, optional
         General circulation models to use. None or an empty list selects all available GCMs for the scenario.
     return_periods : list of int, optional
-        Return periods to include. None or an empty list selects all available return periods.
+        Return periods to include. None or an empty list selects all available return periods. The output sorts by 
+        lowest to highest return period.
     country : str, optional
         ISO3 country code. At least one of ``country`` or ``bounding_box`` must be supplied.
     bounding_box : tuple of float, optional
@@ -235,7 +236,7 @@ def create_aqueduct_river_hazard(
     
     If ``gcms`` is None or empty, all available GCMs are used. If
     ``return_periods`` is None or empty, all available return periods are used.
-    Events are ordered by descending return period, then by the supplied GCM order.
+    Events are ordered by ascending return period, then by the supplied GCM order.
 
     Returns
     -------
@@ -268,13 +269,12 @@ def create_aqueduct_river_hazard(
 
     # Convert return periods to event frequencies
     # ----------------------------------
-    # This conversion is necessary so that the _cumulative frequency_ of events 
+    # This conversion is necessary so that the _cumulative frequency_ of events
     # matches the return periods, rather than the individual event frequencies
-    return_periods_sorted = sorted(return_periods, reverse=True)
-    exceedance_frequency = np.array([1/rp for rp in return_periods_sorted])  # Convert return period to exceedance frequency
-    event_frequency = np.diff(np.concatenate([[0], exceedance_frequency]))   # Convert to event frequency
-    assert np.all(event_frequency > 0), "All event frequencies must be positive"
-    
+    return_periods_sorted = sorted(return_periods)  # ascending
+    exceedance_frequency = 1 / np.array(return_periods_sorted, dtype=float)
+    event_frequency = exceedance_frequency - np.append(exceedance_frequency[1:], 0)
+
     event_frequency = event_frequency / len(gcms)  # Divide by the number of GCMs to distribute frequencies equally
         # Note: if you want to weight the GCMs differently, you can modify this division accordingly and index by RP and GCM
     event_frequency_by_rp = dict(zip(return_periods_sorted, event_frequency))
@@ -366,7 +366,7 @@ def validate_aqueduct_parameters(
         Requested GCMs. If None or empty, all GCMs valid for ``scenario`` are used.
     return_periods : list[int], optional
         Requested return periods. If None or empty, all supported return periods are
-        used. The output sorts by lowest to highest return period.
+        used.
     country : str, optional
         ISO3 country code. If supplied with ``bounding_box``, the country geometry
         is intersected with the bounding box.
@@ -430,12 +430,12 @@ def validate_aqueduct_parameters(
     # Validate return periods
     if not all(isinstance(rp, (int, np.integer)) for rp in return_periods):
         raise ValueError("return_periods must contain integers")
-    return_periods.sort()
     if len(return_periods) != len(set(return_periods)):
         raise ValueError("Return periods must not contain duplicates")
     invalid_rps = [rp for rp in return_periods if rp not in AQUEDUCT_RETURN_PERIODS]
     if invalid_rps:
         raise ValueError(f"Invalid Aqueduct return periods: {invalid_rps}. Valid return periods: {', '.join(map(str, AQUEDUCT_RETURN_PERIODS))}")
+    return_periods = sorted(int(rp) for rp in return_periods)
 
     # Validate geometry requirements
     if require_geometry and country is None and bounding_box is None:
