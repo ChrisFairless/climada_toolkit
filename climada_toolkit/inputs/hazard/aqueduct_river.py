@@ -23,9 +23,10 @@ LOGGER = logging.getLogger(__name__)
 AQUEDUCT_BASE_URL = "https://aqueduct.wridata.org/AqueductFloods20/"
 
 AQUEDUCT_SCENARIOS = ["historical", "rcp4p5", "rcp8p5"]
-AQUEDUCT_YEARS = [1980, 2030, 2050, 2080]
-AQUEDUCT_HISTORICAL_GCMS = ["WATCH"]
-AQUEDUCT_FUTURE_GCMS = [
+AQUEDUCT_YEARS_HISTORICAL = [1980]
+AQUEDUCT_YEARS_FUTURE = [2030, 2050, 2080]
+AQUEDUCT_GCMS_HISTORICAL = ["WATCH"]
+AQUEDUCT_GCMS_FUTURE = [
     "NorESM1-M",
     "GFDL-ESM2M",
     "HadGEM2-ES",
@@ -384,17 +385,17 @@ def validate_aqueduct_parameters(
         raise ValueError("year must be an integer")
     if scenario not in AQUEDUCT_SCENARIOS:
         raise ValueError(f"Invalid Aqueduct scenario: {scenario}. Must be one of {', '.join(AQUEDUCT_SCENARIOS)}")
-    if year not in AQUEDUCT_YEARS:
-        raise ValueError(f"Invalid Aqueduct year: {year}. Must be one of {', '.join(map(str, AQUEDUCT_YEARS))}")
-    if scenario == "historical" and year != 1980:
+    if year not in AQUEDUCT_YEARS_HISTORICAL + AQUEDUCT_YEARS_FUTURE:
+        raise ValueError(f"Invalid Aqueduct year: {year}. Must be one of {', '.join(map(str, set(AQUEDUCT_YEARS_HISTORICAL + AQUEDUCT_YEARS_FUTURE))}")
+    if scenario == "historical" and year not in AQUEDUCT_YEARS_HISTORICAL:
         raise ValueError("Historical Aqueduct data requires year 1980")
-    if scenario != "historical" and year == 1980:
-        raise ValueError("Future Aqueduct scenarios require a future year")
+    if scenario != "historical" and year not in AQUEDUCT_YEARS_FUTURE:
+        raise ValueError(f"Future Aqueduct scenarios require one of the following years: {', '.join(map(str, AQUEDUCT_YEARS_FUTURE))}")
 
     valid_gcms = (
-        AQUEDUCT_HISTORICAL_GCMS
+        AQUEDUCT_GCMS_HISTORICAL
         if scenario == "historical"
-        else AQUEDUCT_FUTURE_GCMS
+        else AQUEDUCT_GCMS_FUTURE
     )
 
     # If no GCMs are provided, use all available GCMs

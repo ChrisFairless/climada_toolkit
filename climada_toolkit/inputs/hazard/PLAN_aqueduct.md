@@ -15,14 +15,15 @@ We are designing a simple, copy-paste-friendly Aqueduct river-flood toolkit. The
 	- Do not require users to edit class functionality to adapt the example.
 	- Define all supported options in visible constants:
 	  - `AQUEDUCT_SCENARIOS`
-	  - `AQUEDUCT_YEARS`
-	  - `AQUEDUCT_HISTORICAL_GCMS`
-	  - `AQUEDUCT_FUTURE_GCMS`
+	  - `AQUEDUCT_YEARS_HISTORICAL`
+	  - `AQUEDUCT_YEARS_FUTURE`
+	  - `AQUEDUCT_GCMS_HISTORICAL`
+	  - `AQUEDUCT_GCMS_FUTURE`
 	  - `AQUEDUCT_RETURN_PERIODS`
 	  - `DOWNLOAD_DIR`
 	  - `OUTPUT_DIR`
 	  - `GLOBAL_BOUNDS`
-	- Do not define defaults for scenario or year. If `gcms` is omitted, select all GCMs valid for the selected scenario: `AQUEDUCT_HISTORICAL_GCMS` for historical and `AQUEDUCT_FUTURE_GCMS` for future scenarios.
+	- Do not define defaults for scenario or year. If `gcms` is omitted, select all GCMs valid for the selected scenario: `AQUEDUCT_GCMS_HISTORICAL` for historical and `AQUEDUCT_GCMS_FUTURE` for future scenarios.
 	- If `return_periods` is omitted, use all `AQUEDUCT_RETURN_PERIODS`.
 	- Set `DOWNLOAD_DIR = Path("./data/raw")` and `OUTPUT_DIR = Path("./data")`.
 	- Define `GLOBAL_BOUNDS = (-180, -90, 180, 90)` and pass it explicitly for a global hazard.
