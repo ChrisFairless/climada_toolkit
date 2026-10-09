@@ -142,7 +142,10 @@ def load_aqueduct_river_flood(
     if output_filename is not None:
         output_path = Path(output_dir) / output_filename
         hazard.write_hdf5(output_path)
-        LOGGER.info("Wrote Aqueduct hazard to %s", output_path)
+        LOGGER.info(
+            "Wrote Aqueduct hazard to %s (%.2f MiB)",
+            output_path, output_path.stat().st_size / 1024**2,
+        )
 
     return hazard
 
@@ -185,8 +188,9 @@ def download_aqueduct_river_file(
     if file_path.exists() and not force_redownload:
         LOGGER.info(
             "Aqueduct file already downloaded: scenario=%s year=%s gcm=%s rp=%s "
-            "url=%s local_path=%s",
+            "url=%s local_path=%s size=%.2f MiB",
             scenario, year, gcm, return_period, url, file_path,
+            file_path.stat().st_size / 1024**2,
         )
         return file_path
 
@@ -201,6 +205,10 @@ def download_aqueduct_river_file(
         raise RuntimeError(
             f"Failed to download {filename} from {url}"
         ) from exc
+    LOGGER.info(
+        "Downloaded Aqueduct file: local_path=%s size=%.2f MiB",
+        file_path, file_path.stat().st_size / 1024**2,
+    )
     return file_path
 
 
