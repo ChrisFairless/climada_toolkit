@@ -24,9 +24,9 @@ LOGGER = logging.getLogger(__name__)
 # Default file storage settings
 # We use subfolders within the local storage set in climada's config file
 # See https://climada-python.readthedocs.io/en/latest/development/Guide_Configuration.html#configuration
-LOCAL_DATA_DIR = CONFIG.local_data.system.dir()
-DOWNLOAD_DIR = LOCAL_DATA_DIR / "exposures" / "ghs_pop" / "raw"
-OUTPUT_DIR = LOCAL_DATA_DIR / "exposures" / "ghs_pop" / "hdf5"
+CLIMADA_DATA_DIR = CONFIG.local_data.system.dir()
+DOWNLOAD_DIR = CLIMADA_DATA_DIR / "exposures" / "ghs_pop" / "raw"
+OUTPUT_DIR = CLIMADA_DATA_DIR / "exposures" / "ghs_pop" / "hdf5"
 
 # Currently supported GHS options
 # (Other map projections and future population projections can be added later)
@@ -98,7 +98,7 @@ def load_ghs_pop(
 
     # Create output directory if it is within CLIMADA CONFIG local storage
     if output_filename is not None and not Path(output_dir).is_dir():
-        if LOCAL_DATA_DIR.is_dir() and LOCAL_DATA_DIR in Path(output_dir).parents:
+        if CLIMADA_DATA_DIR.is_dir() and CLIMADA_DATA_DIR in Path(output_dir).parents:
             Path(output_dir).mkdir(parents=True, exist_ok=True)
         else:
             raise FileNotFoundError(f"Output directory does not exist: {output_dir}")
@@ -266,7 +266,7 @@ def download_ghs_pop_tiles(
 
     download_dir = Path(download_dir)
     if not download_dir.is_dir():
-        if LOCAL_DATA_DIR.is_dir() and LOCAL_DATA_DIR in download_dir.parents:
+        if CLIMADA_DATA_DIR.is_dir() and CLIMADA_DATA_DIR in download_dir.parents:
             download_dir.mkdir(parents=True, exist_ok=True)
         else:
             raise FileNotFoundError(f"Download directory does not exist: {download_dir}")

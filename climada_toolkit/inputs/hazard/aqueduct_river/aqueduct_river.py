@@ -1,4 +1,4 @@
-"""Download, subset, and load Aqueduct river-flood hazard maps.
+"""Download, subset, and load Aqueduct v2 river-flood hazard maps.
 
 The functions in this module provide a small, copy-pasteable workflow:
 validate a request, build Aqueduct filenames, download the requested rasters,
@@ -18,10 +18,19 @@ from climada.util import files_handler as u_fh
 
 LOGGER = logging.getLogger(__name__)
 
+# Default file storage settings
+# We use subfolders within the local storage set in climada's config file
+# See https://climada-python.readthedocs.io/en/latest/development/Guide_Configuration.html#configuration
+CLIMADA_DATA_DIR = CONFIG.local_data.system.dir()
+DOWNLOAD_DIR = CLIMADA_DATA_DIR / "hazard" / "aqueduct_river" / "raw"
+OUTPUT_DIR = CLIMADA_DATA_DIR / "hazard" / "aqueduct_river" / "hdf5"
+
+
 # Aqueduct download URLs moved from the old WRI S3 location below to this base:
 # Old URL base: https://wri-projects.s3.amazonaws.com/AqueductFloodTool/download/v2/
 AQUEDUCT_BASE_URL = "https://aqueduct.wridata.org/AqueductFloods20/"
 
+# All available scenarios, years, GCMs, and return periods
 AQUEDUCT_SCENARIOS = ["historical", "rcp4p5", "rcp8p5"]
 AQUEDUCT_YEARS_HISTORICAL = [1980]
 AQUEDUCT_YEARS_FUTURE = [2030, 2050, 2080]
@@ -35,20 +44,8 @@ AQUEDUCT_GCMS_FUTURE = [
 ]
 AQUEDUCT_RETURN_PERIODS = [2, 5, 10, 25, 50, 100, 250, 500, 1000]
 
-# Download and output paths
-# We use the climada configuration to get a local data system folder.
-DOWNLOAD_DIR = CONFIG.local_data.system.dir() / "hazard" / "aqueduct_river" / "raw"
-OUTPUT_DIR = CONFIG.local_data.system.dir() / "hazard" / "aqueduct_river" / "hdf5"
-
 # Global extent: use this to get a global hazard
 GLOBAL_BOUNDS = (-180, -90, 180, 90)
-
-# Create download and output directories if they do not exist (and the user has specified a CLIMADA data folder)
-if CONFIG.local_data.system.dir().is_dir():
-    if not DOWNLOAD_DIR.is_dir():
-        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    if not OUTPUT_DIR.is_dir():
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_aqueduct_river_flood(
@@ -105,17 +102,17 @@ def load_aqueduct_river_flood(
     # Validate and normalize input parameters
     # ---------------------------------------
     scenario, year, gcms, return_periods, country, bounding_box = (
-        validate_aqueduct_parameters(
+        standardise_aqueduct_parameters(
             scenario, year, gcms, return_periods, country, bounding_box
         )
     )
 
-    if output_dir is not None:
-        if not Path(output_dir).is_dir():
-            raise FileNotFoundError(
-                f"Output directory does not exist: {Path(output_dir)}"
-            )
-
+    # Create output directory if it is within CLIMADA CONFIG local storage
+    if output_dir is not None and not Path(output_dir).is_dir():
+        if CLIMADA_DATA_DIR.is_dir() and CLIMADA_DATA_DIR in Path(output_dir).parents:
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
+        else:
+            raise FileNotFoundError(f"Output directory does not exist: {output_dir}")
 
     # Download required Aqueduct GeoTIFFs
     # ---------------------------------------
@@ -170,7 +167,7 @@ def download_aqueduct_river_file(
         Local path to the file on disk.
     """
 
-    scenario, year, gcms, return_periods, _, _ = validate_aqueduct_parameters(
+    scenario, year, gcms, return_periods, _, _ = standardise_aqueduct_parameters(
         scenario=scenario,
         year=year,
         gcms=[gcm],
@@ -178,8 +175,14 @@ def download_aqueduct_river_file(
         require_geometry=False,
     )
     download_dir = Path(download_dir)
+
+    # Create download and output directories only if they are within CLIMADA CONFIG local storage
     if not download_dir.is_dir():
-        raise FileNotFoundError(f"Download directory does not exist: {download_dir}")
+        if CLIMADA_DATA_DIR.is_dir() and CLIMADA_DATA_DIR in download_dir.parents:
+            download_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            raise FileNotFoundError(f"Download directory does not exist: {download_dir}")
+
 
     filename = build_aqueduct_river_filename(scenario, year, gcm, return_period)
     
@@ -245,7 +248,7 @@ def create_aqueduct_river_hazard(
     """
 
     scenario, year, gcms, return_periods, country, bounding_box = (
-        validate_aqueduct_parameters(
+        standardise_aqueduct_parameters(
             scenario, year, gcms, return_periods, country, bounding_box
         )
     )
@@ -331,7 +334,7 @@ def build_aqueduct_river_filename(
     Parameters are validated before the filename is returned.
     """
 
-    validate_aqueduct_parameters(
+    standardise_aqueduct_parameters(
         scenario=scenario,
         year=year,
         gcms=[gcm],
@@ -345,7 +348,7 @@ def build_aqueduct_river_filename(
 
 
 
-def validate_aqueduct_parameters(
+def standardise_aqueduct_parameters(
     scenario: str,
     year: int,
     gcms: list[str] | None = None,

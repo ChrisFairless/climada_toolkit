@@ -125,7 +125,7 @@ We are designing a simple, copy-paste-friendly Aqueduct river-flood toolkit. The
 14. **Packaging and documentation: one importable module plus an integration notebook (option A)**
 	- Keep the implementation in `data_sources/hazard/aqueduct.py` so users can import it.
 	- Keep configuration, filename generation, validation, downloading, hazard construction, logging, and optional persistence understandable within that module.
-	- Expose only five public functions initially: `validate_aqueduct_parameters`, `aqueduct_river_filename`, `download_aqueduct_river_files`, `create_aqueduct_river_hazard`, and `load_aqueduct_river_flood`.
+	- Expose only five public functions initially: `standardise_aqueduct_parameters`, `aqueduct_river_filename`, `download_aqueduct_river_files`, `create_aqueduct_river_hazard`, and `load_aqueduct_river_flood`.
 	- `download_aqueduct_river_files` returns a list of local `Path` objects for downloaded or reused files.
 	- Add a notebook that demonstrates the complete workflow by calling the sub-methods sequentially.
 	- Treat notebook discovery and execution as the primary integration-testing mechanism for external dependencies.

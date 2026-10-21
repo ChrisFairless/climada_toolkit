@@ -8,7 +8,7 @@ from climada_toolkit.inputs.hazard.aqueduct_river import (
     AQUEDUCT_FUTURE_GCMS,
     build_aqueduct_river_filename,
     create_aqueduct_river_hazard,
-    validate_aqueduct_parameters,
+    standardise_aqueduct_parameters,
 )
 
 
@@ -25,7 +25,7 @@ def _frequencies(monkeypatch, scenario, year, return_periods):
 
 
 def test_return_periods_returned_ascending():
-    _, _, _, rps, _, _ = validate_aqueduct_parameters(
+    _, _, _, rps, _, _ = standardise_aqueduct_parameters(
         "historical", 1980, return_periods=[100, 10, 50, 25], country="gmb"
     )
     assert rps == [10, 25, 50, 100]
@@ -33,7 +33,7 @@ def test_return_periods_returned_ascending():
 
 def test_repeated_return_periods_rejected():
     with pytest.raises(ValueError):
-        validate_aqueduct_parameters(
+        standardise_aqueduct_parameters(
             "historical", 1980, return_periods=[10, 10, 50], country="GMB"
         )
 
@@ -41,7 +41,7 @@ def test_repeated_return_periods_rejected():
 @pytest.mark.parametrize("bad", [["10", "50"], [10.5, 50], "100"])
 def test_text_or_non_integer_return_periods_rejected(bad):
     with pytest.raises(ValueError):
-        validate_aqueduct_parameters(
+        standardise_aqueduct_parameters(
             "historical", 1980, return_periods=bad, country="GMB"
         )
 
@@ -73,15 +73,15 @@ def test_event_frequencies_future_five_gcms(monkeypatch):
 )
 def test_invalid_scenario_year_rejected(scenario, year):
     with pytest.raises(ValueError):
-        validate_aqueduct_parameters(scenario, year, country="GMB")
+        standardise_aqueduct_parameters(scenario, year, country="GMB")
 
 
 @pytest.mark.parametrize("empty", [None, []])
 def test_empty_gcms_expand_to_all(empty):
-    _, _, historical, _, _, _ = validate_aqueduct_parameters(
+    _, _, historical, _, _, _ = standardise_aqueduct_parameters(
         "historical", 1980, gcms=empty, country="GMB"
     )
-    _, _, future, _, _, _ = validate_aqueduct_parameters(
+    _, _, future, _, _, _ = standardise_aqueduct_parameters(
         "rcp8p5", 2050, gcms=empty, country="GMB"
     )
     assert historical == ["WATCH"]
@@ -98,7 +98,7 @@ def test_empty_gcms_expand_to_all(empty):
 )
 def test_invalid_gcms_rejected(scenario, year, gcms):
     with pytest.raises(ValueError):
-        validate_aqueduct_parameters(scenario, year, gcms=gcms, country="GMB")
+        standardise_aqueduct_parameters(scenario, year, gcms=gcms, country="GMB")
 
 
 def test_build_filename():
